@@ -49,7 +49,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force build | Out-Null
           Set-Location build
-          python ..\configure.py --enable-optimize --sdks cs2 --targets x86_64 --mms_path "$env:MMSOURCE20" --hl2sdk-root "$(Split-Path $env:HL2SDKCS2)"
+          python ..\configure.py --enable-optimize --sdks cs2 --targets x86_64 --mms_path "$env:MMSOURCE20" --hl2sdk-root "$(Split-Path $env:HL2SDKCS2)" --hl2sdk-manifests "$env:MMSOURCE20\hl2sdk-manifests"
           ambuild
 
       - name: Package Windows asset
