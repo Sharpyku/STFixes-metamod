@@ -28,6 +28,9 @@ jobs:
           git clone https://github.com/alliedmodders/metamod-source.git "$env:RUNNER_TEMP\mmsource-2.0"
           git -C "$env:RUNNER_TEMP\mmsource-2.0" checkout 05c5c63
           git -C "$env:RUNNER_TEMP\mmsource-2.0" submodule update --init --recursive
+          $manifest = Join-Path $env:RUNNER_TEMP 'mmsource-2.0\hl2sdk-manifests\manifests\cs2.json'
+          Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/alliedmodders/hl2sdk-manifests/master/manifests/cs2.json' -OutFile $manifest
+          if ((Get-Content -Raw $manifest) -match 'tier1\.lib') { throw 'CS2 manifest still requests obsolete tier1.lib' }
           $khook = Join-Path $env:RUNNER_TEMP 'mmsource-2.0\third_party\khook\include'
           Copy-Item (Join-Path $khook 'khook.hpp') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook.hpp')
           Copy-Item (Join-Path $khook 'khook') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook') -Recurse
@@ -40,33 +43,6 @@ jobs:
           cd "$RUNNER_TEMP/dependencies"
           "$RUNNER_TEMP/mmsource-2.0/support/checkout-deps.sh" -s cs2
           echo "HL2SDKCS2=$RUNNER_TEMP/dependencies/hl2sdk-cs2" >> "$GITHUB_ENV"
-
-      - name: Build Metamod SDK support libraries
-        shell: pwsh
-        run: |
-          $mm = Join-Path $env:RUNNER_TEMP 'mmsource-2.0'
-          $deps = Join-Path $env:RUNNER_TEMP 'dependencies'
-          $mmBuild = Join-Path $mm 'build-cs2'
-          New-Item -ItemType Directory -Force $mmBuild | Out-Null
-          Push-Location $mmBuild
-          python (Join-Path $mm 'configure.py') --enable-optimize --sdks cs2 --targets x86_64 --hl2sdk-root $deps
-          ambuild
-          Pop-Location
-
-          $sdkLib = Join-Path $deps 'hl2sdk-cs2\lib\public\win64'
-          New-Item -ItemType Directory -Force $sdkLib | Out-Null
-          foreach ($name in @('tier0.lib', 'tier1.lib', 'mathlib.lib', 'interfaces.lib')) {
-            $candidate = Get-ChildItem -Path $mmBuild -Recurse -Filter $name -File |
-              Where-Object { $_.FullName -notmatch '\\package\\' } |
-              Select-Object -First 1
-            if (-not $candidate) {
-              Write-Host "Metamod build tree:"
-              Get-ChildItem -Path $mmBuild -Recurse -File | Select-Object -ExpandProperty FullName
-              throw "Metamod build did not produce $name"
-            }
-            Copy-Item -LiteralPath $candidate.FullName -Destination (Join-Path $sdkLib $name) -Force
-            Write-Host "Installed $name from $($candidate.FullName)"
-          }
 
       - name: Build Windows DLL
         shell: pwsh
