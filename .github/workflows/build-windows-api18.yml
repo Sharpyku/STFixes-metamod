@@ -32,7 +32,14 @@ jobs:
           Copy-Item (Join-Path $khook 'khook.hpp') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook.hpp')
           Copy-Item (Join-Path $khook 'khook') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook') -Recurse
           "MMSOURCE20=$env:RUNNER_TEMP\mmsource-2.0" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "HL2SDKCS2=$((Get-Location).Path)\sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Download Windows SDK libraries
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/dependencies/metamod-source"
+          cd "$RUNNER_TEMP/dependencies"
+          "$RUNNER_TEMP/mmsource-2.0/support/checkout-deps.sh" -s cs2
+          echo "HL2SDKCS2=$RUNNER_TEMP/dependencies/hl2sdk-cs2" >> "$GITHUB_ENV"
 
       - name: Build Windows DLL
         shell: pwsh
