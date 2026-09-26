@@ -28,6 +28,9 @@ jobs:
           git clone https://github.com/alliedmodders/metamod-source.git "$env:RUNNER_TEMP\mmsource-2.0"
           git -C "$env:RUNNER_TEMP\mmsource-2.0" checkout 05c5c63
           git -C "$env:RUNNER_TEMP\mmsource-2.0" submodule update --init --recursive
+          $khook = Join-Path $env:RUNNER_TEMP 'mmsource-2.0\third_party\khook\include'
+          Copy-Item (Join-Path $khook 'khook.hpp') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook.hpp')
+          Copy-Item (Join-Path $khook 'khook') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook') -Recurse
           "MMSOURCE20=$env:RUNNER_TEMP\mmsource-2.0" | Out-File -FilePath $env:GITHUB_ENV -Append
           "HL2SDKCS2=$((Get-Location).Path)\sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
 
