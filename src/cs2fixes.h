@@ -23,6 +23,8 @@
 #include "networksystem/inetworkserializer.h"
 #include <iserver.h>
 
+class CEntityPrecacheContext;
+
 class CS2Fixes : public ISmmPlugin, public IMetamodListener
 {
 public:
@@ -34,8 +36,8 @@ public:
 public: //hooks
 	void Hook_ClientActive( CPlayerSlot slot, bool bLoadGame, const char *pszName, uint64 xuid );
 	void Hook_StartupServer(const GameSessionConfiguration_t& config, ISource2WorldSession *pSession, const char *pszMapName);
-	void Hook_CTriggerGravityPrecache(CEntityPrecacheContext* param);
-	void Hook_CTriggerGravityEndTouch(CBaseEntity* pOther);
+	void Hook_CTriggerGravityPrecache(CBaseEntity* pThis, CEntityPrecacheContext* param);
+	void Hook_CTriggerGravityEndTouch(CBaseEntity* pThis, CBaseEntity* pOther);
 	void OnLevelInit(char const* pMapName,
 					 char const* pMapEntities,
 					 char const* pOldLevel,
