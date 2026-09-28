@@ -50,7 +50,7 @@ jobs:
           repository: alliedmodders/metamod-source
           # Pinned, not master: this is the build the API 18 port was validated
           # against, and Metamod's plugin ABI moves without warning.
-          ref: 05c5c63
+          ref: 05c5c63a9d595cb84021c3a51fe38366ba4a12a5
           path: mmsource-2.0
           submodules: recursive
 
