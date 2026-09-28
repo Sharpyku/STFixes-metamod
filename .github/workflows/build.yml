@@ -48,9 +48,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: alliedmodders/metamod-source
-          ref: master
+          # Pinned, not master: this is the build the API 18 port was validated
+          # against, and Metamod's plugin ABI moves without warning.
+          ref: 05c5c63
           path: mmsource-2.0
           submodules: recursive
+
+      # core/ISmmPlugin.h includes "khook.hpp" as a sibling, but Metamod keeps
+      # KHook in third_party/khook/include. Without this the build dies with
+      # "fatal error: 'khook.hpp' file not found" on the first translation unit.
+      - name: Stage KHook headers
+        shell: bash
+        run: |
+          khook=mmsource-2.0/third_party/khook/include
+          test -f "$khook/khook.hpp" || { echo "KHook headers missing at $khook"; exit 1; }
+          cp "$khook/khook.hpp" mmsource-2.0/core/khook.hpp
+          cp -r "$khook/khook" mmsource-2.0/core/khook
 
       - name: Checkout AMBuild
         uses: actions/checkout@v4
