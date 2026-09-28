@@ -1,0 +1,77 @@
+name: Build Windows API18 release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out API18 source
+        uses: actions/checkout@v4
+        with:
+          ref: metamod-api18
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Prepare AMBuild and Metamod
+        shell: pwsh
+        run: |
+          git clone https://github.com/alliedmodders/ambuild.git "$env:RUNNER_TEMP\ambuild"
+          python -m pip install "$env:RUNNER_TEMP\ambuild"
+          git clone https://github.com/alliedmodders/metamod-source.git "$env:RUNNER_TEMP\mmsource-2.0"
+          git -C "$env:RUNNER_TEMP\mmsource-2.0" checkout 05c5c63
+          git -C "$env:RUNNER_TEMP\mmsource-2.0" submodule update --init --recursive
+          $manifest = Join-Path $env:RUNNER_TEMP 'mmsource-2.0\hl2sdk-manifests\manifests\cs2.json'
+          Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/alliedmodders/hl2sdk-manifests/master/manifests/cs2.json' -OutFile $manifest
+          if ((Get-Content -Raw $manifest) -match 'tier1\.lib') { throw 'CS2 manifest still requests obsolete tier1.lib' }
+          $khook = Join-Path $env:RUNNER_TEMP 'mmsource-2.0\third_party\khook\include'
+          Copy-Item (Join-Path $khook 'khook.hpp') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook.hpp')
+          Copy-Item (Join-Path $khook 'khook') (Join-Path $env:RUNNER_TEMP 'mmsource-2.0\core\khook') -Recurse
+          "MMSOURCE20=$env:RUNNER_TEMP\mmsource-2.0" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Download Windows SDK libraries
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/dependencies/metamod-source"
+          cd "$RUNNER_TEMP/dependencies"
+          "$RUNNER_TEMP/mmsource-2.0/support/checkout-deps.sh" -s cs2
+          echo "HL2SDKCS2=$RUNNER_TEMP/dependencies/hl2sdk-cs2" >> "$GITHUB_ENV"
+
+      - name: Build Windows DLL
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          Set-Location build
+          python ..\configure.py --enable-optimize --sdks cs2 --targets x86_64 --mms_path "$env:MMSOURCE20" --hl2sdk-root "$(Split-Path $env:HL2SDKCS2)" --hl2sdk-manifests "$env:MMSOURCE20\hl2sdk-manifests"
+          ambuild
+
+      - name: Package Windows asset
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Recurse -Path build\package -Filter stfixes-metamod.dll | Select-Object -First 1
+          if (-not $dll) { throw 'Build produced no stfixes-metamod.dll' }
+          $stage = Join-Path $env:RUNNER_TEMP 'stfixes-stage'
+          New-Item -ItemType Directory -Force "$stage\addons\stfixes-metamod\bin\win64", "$stage\addons\stfixes-metamod\gamedata", "$stage\addons\metamod" | Out-Null
+          Copy-Item $dll.FullName "$stage\addons\stfixes-metamod\bin\win64\stfixes-metamod.dll"
+          Copy-Item gamedata\cs2fixes.games.txt "$stage\addons\stfixes-metamod\gamedata\cs2fixes.games.txt"
+          @'
+          "Metamod Plugin"
+          {
+              "alias" "stfixes-metamod"
+              "file"  "addons/stfixes-metamod/bin/win64/stfixes-metamod"
+          }
+          '@ | Set-Content "$stage\addons\metamod\stfixes-metamod.vdf"
+          Compress-Archive -Path "$stage\*" -DestinationPath STFixes-metamod-api18-windows-x86_64.zip -Force
+
+      - name: Upload release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload api18-1.0.0 STFixes-metamod-api18-windows-x86_64.zip --repo "${{ github.repository }}" --clobber
